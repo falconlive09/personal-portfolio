@@ -1,0 +1,27 @@
+
+import { notFound } from 'next/navigation';
+import { portfolioData } from '@/data/portfolio';
+import { ProjectPageContent } from '@/components/projects/ProjectPageContent';
+
+export async function generateStaticParams() {
+    return portfolioData.projects.map((project) => ({
+        slug: project.slug,
+    }));
+}
+
+export default async function ProjectPage({ params }: { params: Promise<{ slug: string }> }) {
+    const { slug } = await params;
+    const project = portfolioData.projects.find((p) => p.slug === slug);
+
+    if (!project) {
+        notFound();
+    }
+
+    // The "Visual gallery" section shows `galleryImages` from src/data/portfolio.ts, or the cover image when none are listed
+    const updatedProject = {
+        ...project,
+        galleryImages: project.galleryImages ?? (project.image ? [project.image] : undefined),
+    };
+
+    return <ProjectPageContent project={updatedProject} />;
+}
