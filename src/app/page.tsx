@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import dynamic from 'next/dynamic';
 import { motion, useScroll, useTransform, AnimatePresence, useSpring, useMotionValue, useMotionTemplate } from 'framer-motion';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
@@ -21,13 +20,7 @@ if (typeof window !== 'undefined') {
     gsap.registerPlugin(ScrollTrigger);
 }
 
-const Hyperspeed = dynamic(() => import('@/components/ui/Hyperspeed'), { ssr: false });
-const { hyperspeedPresets } = require('@/components/ui/Hyperspeed');
 
-const Scene3D = dynamic(() => import('@/components/three/Scene3D').then(mod => ({ default: mod.Scene3D })), {
-    ssr: false,
-    loading: () => null
-});
 
 import AboutSection from "@/components/sections/AboutSection";
 import ExpertiseSection from "@/components/sections/ExpertiseSection";
@@ -45,7 +38,8 @@ const MetricCTAHijack = () => {
             <StatsSection showOnly="top" />
             <section className="relative">
                 {/* Layer 1: The Blog/Book Slider (Sticky) */}
-                <div className="sticky top-0 z-0 overflow-hidden">
+                {/* Phones & tablets: not pinned (the CTA follows it in normal scroll) */}
+                <div className="sticky max-lg:relative top-0 z-0 overflow-hidden">
                     <StatsSection showOnly="bottom" />
                 </div>
 

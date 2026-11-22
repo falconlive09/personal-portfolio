@@ -7,6 +7,7 @@ import { portfolioData } from "@/data/portfolio";
 import { cn } from "@/lib/utils";
 import Link from 'next/link';
 import gsap from "gsap";
+import { watchActive } from "@/hooks/useShouldAnimate";
 import { ProfileCard } from "@/components/ui/profile-card";
 import { Spotlight } from "@/components/ui/spotlight-new";
 
@@ -32,9 +33,18 @@ export function HeroVisual({ isExiting = false }: { isExiting?: boolean }) {
   const zapRef = useRef(null);
   const zapSmallRef = useRef(null);
   const botRef = useRef(null);
+  const heroRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!isExiting) return;
+
+    // The floating icons loop forever; pause those loops while the hero is off-screen or the tab is hidden
+    const loops: gsap.core.Tween[] = [];
+    let heroActive = true;
+    const track = (tween: gsap.core.Tween) => {
+      loops.push(tween);
+      if (!heroActive) tween.pause();
+    };
 
     const ctx = gsap.context(() => {
       // Reveal + Loop for GitHub
@@ -46,14 +56,14 @@ export function HeroVisual({ isExiting = false }: { isExiting?: boolean }) {
           duration: 1,
           ease: "power3.out",
           onComplete: () => {
-            gsap.to(githubRef.current, {
+            track(gsap.to(githubRef.current, {
               y: -10,
               duration: 2,
               repeat: -1,
               yoyo: true,
               ease: "sine.inOut",
               force3D: true
-            });
+            }));
           }
         }
       );
@@ -68,14 +78,14 @@ export function HeroVisual({ isExiting = false }: { isExiting?: boolean }) {
           delay: 0.1,
           ease: "power3.out",
           onComplete: () => {
-            gsap.to(linkedinRef.current, {
+            track(gsap.to(linkedinRef.current, {
               y: 10,
               duration: 2.5,
               repeat: -1,
               yoyo: true,
               ease: "sine.inOut",
               force3D: true
-            });
+            }));
           }
         }
       );
@@ -90,30 +100,30 @@ export function HeroVisual({ isExiting = false }: { isExiting?: boolean }) {
           delay: 0.2,
           ease: "power3.out",
           onComplete: () => {
-            gsap.to(instagramRef.current, {
+            track(gsap.to(instagramRef.current, {
               x: 10,
               duration: 3,
               repeat: -1,
               yoyo: true,
               ease: "sine.inOut",
               force3D: true
-            });
+            }));
           }
         }
       );
 
       // Zap pulsing - Energetic heartbeat effect
-      gsap.to([zapRef.current, zapSmallRef.current], {
+      track(gsap.to([zapRef.current, zapSmallRef.current], {
         scale: 1.2,
         duration: 0.6,
         repeat: -1,
         yoyo: true,
         ease: "power2.inOut",
         force3D: true
-      });
+      }));
 
       // Bot floating - Responsive and smooth
-      gsap.to(botRef.current, {
+      track(gsap.to(botRef.current, {
         rotation: 8,
         y: -10,
         duration: 1.8,
@@ -121,14 +131,25 @@ export function HeroVisual({ isExiting = false }: { isExiting?: boolean }) {
         yoyo: true,
         ease: "sine.inOut",
         force3D: true
-      });
+      }));
     });
 
-    return () => ctx.revert();
+    const stopWatching = heroRef.current
+      ? watchActive(heroRef.current, (active) => {
+          heroActive = active;
+          loops.forEach((t) => (active ? t.resume() : t.pause()));
+        })
+      : undefined;
+
+    return () => {
+      stopWatching?.();
+      ctx.revert();
+    };
   }, [isExiting]);
 
   return (
     <motion.div
+      ref={heroRef}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       className="relative min-h-screen min-h-[100svh] w-full flex flex-col bg-background text-foreground overflow-hidden selection:bg-primary/20"

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useScroll, useMotionValueEvent } from 'framer-motion';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -79,7 +79,8 @@ export function Navbar() {
     const [isVisible, setIsVisible] = useState(true);
     const [isScrolled, setIsScrolled] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const [lastScrollY, setLastScrollY] = useState(0);
+    // A ref, not state: it changes on every scroll frame and nothing renders from it
+    const lastScrollY = useRef(0);
     const [mounted, setMounted] = useState(false);
     
     // Consume preload state directly from context
@@ -111,7 +112,7 @@ export function Navbar() {
     useMotionValueEvent(scrollY, 'change', (latest) => {
         if (isMenuOpen) return; // Don't hide navbar when menu is open
 
-        const direction = latest > lastScrollY ? 'down' : 'up';
+        const direction = latest > lastScrollY.current ? 'down' : 'up';
         setIsScrolled(latest > 50);
 
         if (direction === 'down' && latest > 100) {
@@ -120,7 +121,7 @@ export function Navbar() {
             setIsVisible(true);
         }
 
-        setLastScrollY(latest);
+        lastScrollY.current = latest;
     });
 
     const toggleMenu = useCallback(() => {

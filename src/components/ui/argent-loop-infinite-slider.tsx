@@ -4,6 +4,7 @@ import { ArrowRight, ChevronDown, Github, ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import MagneticEffect from "@/components/ui/MagneticEffect";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import { portfolioData } from "@/data/portfolio";
 
 interface ProjectData {
@@ -14,6 +15,11 @@ interface ProjectData {
   description: string;
   slug: string;
 }
+
+// Local images go through Next's image optimizer at a fixed width instead of the 1600px originals.
+// The full-screen backgrounds are darkened and blurred, so 640px looks the same and decodes ~6x smaller.
+const resized = (src: string, w: 640 | 1080) =>
+  src.startsWith("/") ? `/_next/image?url=${encodeURIComponent(src)}&w=${w}&q=75` : src;
 
 // Fallback cover for a project in portfolio.ts that has no `image` yet.
 const PLACEHOLDER_IMAGE = "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=2070&auto=format&fit=crop&fm=webp";
@@ -28,48 +34,7 @@ const PROJECT_DATA: ProjectData[] = portfolioData.projects.slice(0, 5).map((proj
   slug: project.slug,
 }));
 
-export function ArgentLoopInfiniteSlider() {
-  const containerRef = React.useRef<HTMLDivElement>(null);
-  
-  const { scrollYProgress } = useScroll({
-    target: containerRef,
-    offset: ["start start", "end end"]
-  });
-
-  const smoothProgress = useSpring(scrollYProgress, { stiffness: 60, damping: 30, mass: 1 });
-
-  const projectArea = 0.85;
-  const projectStep = projectArea / PROJECT_DATA.length; 
-  const transWindow = 0.05; 
-
-  const scrollMap = [0];
-  const yMap = ["0vh"];
-  const internalYMap = ["0px"];
-
-  PROJECT_DATA.forEach((_, i) => {
-    if (i === 0) return;
-    const boundary = i * projectStep;
-    scrollMap.push(boundary - transWindow / 2, boundary + transWindow / 2);
-    yMap.push(`-${(i-1)*100}vh`, `-${i*100}vh`);
-    internalYMap.push(`-${(i-1)*250}px`, `-${i*250}px`);
-  });
-
-  scrollMap.push(projectArea, 1);
-  yMap.push(`-${(PROJECT_DATA.length-1)*100}vh`, `-${(PROJECT_DATA.length-1)*100}vh`);
-  internalYMap.push(`-${(PROJECT_DATA.length-1)*250}px`, `-${(PROJECT_DATA.length-1)*250}px`);
-
-  const currentY = useTransform(smoothProgress, scrollMap, yMap);
-  const contentInternalY = useTransform(smoothProgress, scrollMap, internalYMap);
-
-  const bgOpacity = useTransform(smoothProgress, [0, 0.05, projectArea, 1], [0, 1, 1, 0]);
-  const mainUIOpacity = useTransform(smoothProgress, [0, 0.05, projectArea, 1], [0, 1, 1, 0]);
-  const buttonOpacity = useTransform(smoothProgress, [projectArea, projectArea + 0.05], [0, 1]);
-  const finalContainerY = useTransform(smoothProgress, [projectArea, projectArea + 0.05], ["0px", "-250px"]);
-  const imageY = useTransform(smoothProgress, [0, 1], ["-12%", "12%"]);
-
-  return (
-    <div ref={containerRef} className="relative h-[500vh]">
-      <style>{`
+const SLIDER_CSS = `
         .argent-slider-wrapper {
             position: sticky;
             top: 0;
@@ -97,7 +62,6 @@ export function ArgentLoopInfiniteSlider() {
             object-fit: cover;
             filter: brightness(0.3) blur(10px);
             transform: scale(1.05);
-            will-change: transform;
         }
         .mist-overlay {
             position: absolute;
@@ -143,7 +107,6 @@ export function ArgentLoopInfiniteSlider() {
         .minimap-img-item img {
             display: block;
             margin: 0;
-            will-change: transform;
         }
         .minimap-info-list {
             position: absolute;
@@ -277,42 +240,68 @@ export function ArgentLoopInfiniteSlider() {
             height: 100%;
             will-change: width;
         }
-      `}</style>
       
-      <div className="argent-slider-wrapper">
-        <motion.div style={{ opacity: bgOpacity }}>
-          <div className="mist-overlay" />
-          <motion.div className="project-list" style={{ y: currentY }}>
-            {PROJECT_DATA.map((data, i) => (
-              <div key={i} className="project" style={{ top: `${i * 100}vh` }}>
-                <motion.img src={data.image} alt={data.title} style={{ y: imageY }} />
-              </div>
-            ))}
-          </motion.div>
-        </motion.div>
+        /* Compact (phones & tablets): cards sit in normal flow, no scaling for short screens.
+           Anti-flicker on iOS: a dark card behind the photo (no white flash if Safari drops a decoded
+           image while scrolling), and a 60% black overlay instead of filter: brightness(0.4) on the
+           image (same result, but no filtered copy to re-rasterise during scroll). */
+        .argent-compact .minimap-bar-outer { transform: none; position: relative; background: #0a0a0a !important; }
+        .argent-compact .minimap-img-item img { filter: none; }
+        .argent-compact .minimap-img-item::after { content: ""; position: absolute; inset: 0; background: rgba(0, 0, 0, 0.6); pointer-events: none; }
+`;
 
-        <div className="absolute inset-0 z-[100] flex items-center justify-center pointer-events-none">
-          <motion.div 
-            style={{ y: finalContainerY, willChange: "transform" }}
-            className="flex flex-col items-center"
-          >
-            <motion.div style={{ opacity: mainUIOpacity }} className="minimap-bar-outer">
-              <div className="minimap-content-viewport">
-                <div className="minimap-img-preview">
-                  <motion.div style={{ y: contentInternalY }} className="w-full h-full relative">
-                    {PROJECT_DATA.map((data, i) => (
-                      <div key={i} className="minimap-img-item" style={{ top: `${i * 250}px` }}>
-                        <img src={data.image} alt={data.title} className="block w-full h-full object-cover" />
-                      </div>
-                    ))}
-                  </motion.div>
-                </div>
-                <div className="minimap-info-list">
-                  <motion.div style={{ y: contentInternalY }} className="w-full h-full relative">
-                    {PROJECT_DATA.map((data, i) => {
-                      const num = (i + 1).toString().padStart(2, "0");
-                      return (
-                        <div key={i} className="minimap-item-info" style={{ top: `${i * 250}px` }}>
+export function ArgentLoopInfiniteSlider() {
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  
+  const { scrollYProgress } = useScroll({
+    target: containerRef,
+    offset: ["start start", "end end"]
+  });
+
+  const smoothProgress = useSpring(scrollYProgress, { stiffness: 60, damping: 30, mass: 1 });
+
+  const projectArea = 0.85;
+  const projectStep = projectArea / PROJECT_DATA.length; 
+  const transWindow = 0.05; 
+
+  const scrollMap = [0];
+  const yMap = ["0vh"];
+  const internalYMap = ["0px"];
+
+  PROJECT_DATA.forEach((_, i) => {
+    if (i === 0) return;
+    const boundary = i * projectStep;
+    scrollMap.push(boundary - transWindow / 2, boundary + transWindow / 2);
+    yMap.push(`-${(i-1)*100}vh`, `-${i*100}vh`);
+    internalYMap.push(`-${(i-1)*250}px`, `-${i*250}px`);
+  });
+
+  scrollMap.push(projectArea, 1);
+  yMap.push(`-${(PROJECT_DATA.length-1)*100}vh`, `-${(PROJECT_DATA.length-1)*100}vh`);
+  internalYMap.push(`-${(PROJECT_DATA.length-1)*250}px`, `-${(PROJECT_DATA.length-1)*250}px`);
+
+  const currentY = useTransform(smoothProgress, scrollMap, yMap);
+  const contentInternalY = useTransform(smoothProgress, scrollMap, internalYMap);
+
+  const bgOpacity = useTransform(smoothProgress, [0, 0.05, projectArea, 1], [0, 1, 1, 0]);
+  const mainUIOpacity = useTransform(smoothProgress, [0, 0.05, projectArea, 1], [0, 1, 1, 0]);
+  const buttonOpacity = useTransform(smoothProgress, [projectArea, projectArea + 0.05], [0, 1]);
+  const finalContainerY = useTransform(smoothProgress, [projectArea, projectArea + 0.05], ["0px", "-250px"]);
+  const imageY = useTransform(smoothProgress, [0, 1], ["-12%", "12%"]);
+  const buttonPointerEvents = useTransform(smoothProgress, (v) => v > projectArea ? "auto" : "none");
+  const overlayOpacity = useTransform(smoothProgress, [0, 0.05, projectArea, projectArea + 0.05], [0, 1, 1, 0]);
+  const progressWidth = useTransform(smoothProgress, [0, projectArea], ["0%", "100%"]);
+  const pageLabel = useTransform(smoothProgress, (v) => {
+    const idx = Math.min(Math.floor(v / projectStep), PROJECT_DATA.length - 1);
+    return `${idx + 1} / ${PROJECT_DATA.length}`;
+  });
+  // Phones & tablets: no 500vh pinned slideshow (see the compact branch below)
+  const compact = useIsMobile(1024);
+
+  const renderInfo = (data: ProjectData, i: number, top: string) => {
+    const num = (i + 1).toString().padStart(2, "0");
+    return (
+    <div key={i} className="minimap-item-info" style={{ top }}>
                           <div className="minimap-item-info-row">
                             <p className="font-medium opacity-100">{num}</p>
                             <h4 className="text-xl md:text-2xl font-medium tracking-tight uppercase text-right max-w-[45%] leading-tight">
@@ -335,20 +324,10 @@ export function ArgentLoopInfiniteSlider() {
                             </Link>
                           </div>
                         </div>
-                      );
-                    })}
-                  </motion.div>
-                </div>
-              </div>
-            </motion.div>
+    );
+  };
 
-            <div className="h-[200px] w-full flex items-center justify-center pt-10">
-              <motion.div 
-                style={{ 
-                  opacity: buttonOpacity,
-                  pointerEvents: useTransform(smoothProgress, (v) => v > projectArea ? "auto" : "none")
-                }}
-              >
+  const actions = (
                 <div className="flex items-center gap-4 pointer-events-auto">
                   <MagneticEffect>
                     <a 
@@ -373,27 +352,104 @@ export function ArgentLoopInfiniteSlider() {
                     </div>
                   </MagneticEffect>
                 </div>
+  );
+
+  if (compact) {
+    return (
+      <div ref={containerRef} className="argent-compact relative w-full py-16 flex flex-col items-center gap-5">
+        <style>{SLIDER_CSS}</style>
+        {PROJECT_DATA.map((data, i) => (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true, amount: 0.2 }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
+            className="minimap-bar-outer"
+          >
+            <div className="minimap-content-viewport">
+              <div className="minimap-img-preview">
+                <div className="minimap-img-item" style={{ top: 0 }}>
+                  <img src={resized(data.image, 1080)} alt={data.title} className="block w-full h-full object-cover" decoding="async" />
+                </div>
+              </div>
+              <div className="minimap-info-list">
+                {renderInfo(data, i, "0px")}
+              </div>
+            </div>
+          </motion.div>
+        ))}
+        <div className="pt-8">{actions}</div>
+      </div>
+    );
+  }
+
+  return (
+    <div ref={containerRef} className="relative h-[500vh]">
+      <style>{SLIDER_CSS}</style>
+      
+      <div className="argent-slider-wrapper">
+        <motion.div style={{ opacity: bgOpacity }}>
+          <div className="mist-overlay" />
+          <motion.div className="project-list" style={{ y: currentY }}>
+            {PROJECT_DATA.map((data, i) => (
+              <div key={i} className="project" style={{ top: `${i * 100}vh` }}>
+                <motion.img src={resized(data.image, 640)} alt={data.title} style={{ y: imageY }} />
+              </div>
+            ))}
+          </motion.div>
+        </motion.div>
+
+        <div className="absolute inset-0 z-[100] flex items-center justify-center pointer-events-none">
+          <motion.div 
+            style={{ y: finalContainerY, willChange: "transform" }}
+            className="flex flex-col items-center"
+          >
+            <motion.div style={{ opacity: mainUIOpacity }} className="minimap-bar-outer">
+              <div className="minimap-content-viewport">
+                <div className="minimap-img-preview">
+                  <motion.div style={{ y: contentInternalY }} className="w-full h-full relative">
+                    {PROJECT_DATA.map((data, i) => (
+                      <div key={i} className="minimap-img-item" style={{ top: `${i * 250}px` }}>
+                        <img src={resized(data.image, 1080)} alt={data.title} className="block w-full h-full object-cover" />
+                      </div>
+                    ))}
+                  </motion.div>
+                </div>
+                <div className="minimap-info-list">
+                  <motion.div style={{ y: contentInternalY }} className="w-full h-full relative">
+                    {PROJECT_DATA.map((data, i) => renderInfo(data, i, `${i * 250}px`))}
+                  </motion.div>
+                </div>
+              </div>
+            </motion.div>
+
+            <div className="h-[200px] w-full flex items-center justify-center pt-10">
+              <motion.div 
+                style={{ 
+                  opacity: buttonOpacity,
+                  pointerEvents: buttonPointerEvents
+                }}
+              >
+                {actions}
               </motion.div>
             </div>
           </motion.div>
         </div>
 
         <motion.div 
-          style={{ opacity: useTransform(smoothProgress, [0, 0.05, projectArea, projectArea + 0.05], [0, 1, 1, 0]) }}
+          style={{ opacity: overlayOpacity }}
           className="slide-overlay"
         >
            <span className="text-foreground/40 font-mono text-[10px] tracking-[0.5em] uppercase">Page</span>
            <div className="slide-line bg-foreground/10">
               <motion.div 
                 className="slide-progress bg-foreground" 
-                style={{ width: useTransform(smoothProgress, [0, projectArea], ["0%", "100%"]) }} 
+                style={{ width: progressWidth }} 
               />
            </div>
            <motion.span className="text-foreground font-mono text-[11px] tabular-nums font-bold">
-              {useTransform(smoothProgress, (v) => {
-               const idx = Math.min(Math.floor(v / projectStep), PROJECT_DATA.length - 1);
-               return `${idx + 1} / ${PROJECT_DATA.length}`;
-             })}
+              {pageLabel}
            </motion.span>
         </motion.div>
       </div>

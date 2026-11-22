@@ -11,6 +11,7 @@ import {
     useVelocity,
 } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { useShouldAnimate } from '@/hooks/useShouldAnimate';
 
 interface VelocityMapping {
     input: [number, number];
@@ -125,8 +126,11 @@ export const ScrollVelocity: React.FC<ScrollVelocityProps> = ({
         });
 
         const directionFactor = useRef<number>(1);
+        // Skip the per-frame work while this line is off-screen or the tab is hidden
+        const wrapRef = useRef<HTMLDivElement>(null);
+        const active = useShouldAnimate(wrapRef);
         useAnimationFrame((t, delta) => {
-            if (isLowPowerMode) return; // Completely freeze the ticker in low power mode to save CPU
+            if (isLowPowerMode || !active) return; // Completely freeze the ticker in low power mode to save CPU
 
             let moveBy = directionFactor.current * baseVelocity * (delta / 1000);
 
@@ -147,6 +151,7 @@ export const ScrollVelocity: React.FC<ScrollVelocityProps> = ({
 
         return (
             <div
+                ref={wrapRef}
                 className={cn("relative overflow-hidden", parallaxClassName)}
                 style={parallaxStyle}
             >

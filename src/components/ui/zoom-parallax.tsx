@@ -3,6 +3,7 @@
 import { useScroll, useTransform, motion, MotionValue } from 'framer-motion';
 import { useRef } from 'react';
 import Image from 'next/image';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 interface Image {
 	src: string;
@@ -30,17 +31,20 @@ export function ZoomParallax({ images, children }: ZoomParallaxProps) {
 
 	// Images use full-viewport `sizes`: each tile zooms up to fill the screen while scrolling.
 	const scales: MotionValue<number>[] = [scale4, scale5, scale6, scale5, scale6, scale8, scale9];
+	// Phones & tablets: show the collage's opening frame in one screen of normal scroll instead of a
+	// 300vh pinned zoom (seven full-screen layers scaling up to 9x was too heavy for 4 GB iPhones).
+	const compact = useIsMobile(1024);
 
 	return (
-		<div ref={container} className="relative h-[300vh] z-[1]">
-			<div className="sticky top-0 h-screen overflow-hidden">
+		<div ref={container} className={compact ? "relative h-[100svh] z-[1]" : "relative h-[300vh] z-[1]"}>
+			<div className={compact ? "relative h-full overflow-hidden" : "sticky top-0 h-screen overflow-hidden"}>
 				{images.slice(0, 7).map(({ src, alt }, index) => {
 					const scale = scales[index % scales.length];
 
 					return (
 						<motion.div
 							key={index}
-							style={{ scale, willChange: 'transform' }}
+							style={compact ? undefined : { scale, willChange: 'transform' }}
 							className={`absolute top-0 flex h-full w-full items-center justify-center pointer-events-none ${
                                 index === 1 ? '[&>div]:!-top-[30vh] [&>div]:!left-[5vw] [&>div]:!h-[30vh] [&>div]:!w-[35vw]' : 
                                 index === 2 ? '[&>div]:!-top-[10vh] [&>div]:!-left-[25vw] [&>div]:!h-[45vh] [&>div]:!w-[20vw]' : 

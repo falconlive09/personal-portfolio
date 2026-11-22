@@ -2,6 +2,7 @@
 
 import { useRef, useState, useEffect, type FC } from "react";
 import { usePerformance } from "@/hooks/usePerformance";
+import { useShouldAnimate } from "@/hooks/useShouldAnimate";
 import Spline from '@splinetool/react-spline';
 import { WebGLErrorBoundary } from './WebGLErrorBoundary';
 
@@ -93,35 +94,20 @@ export const SplineScene: FC<SplineSceneProps> = ({ scene, className, poster }) 
         return () => { cancelled = true; };
     }, []);
 
-    // Intersection Observer to pause/play the heavy WebGL engine when out of view
+    // Pause the WebGL engine while the scene is off-screen or the tab is hidden. Re-applied once the
+    // scene loads, since it can finish loading after the user has already scrolled past it.
+    const active = useShouldAnimate(containerRef);
     useEffect(() => {
-        if (showStatic || !containerRef.current) return;
-
-        const observer = new IntersectionObserver(
-            ([entry]) => {
-                const isIntersecting = entry.isIntersecting;
-                setIsVisible(isIntersecting);
-
-                if (splineApp.current) {
-                    try {
-                        if (isIntersecting) {
-                            // Resume WebGL rendering
-                            splineApp.current.play();
-                        } else {
-                            // Pause WebGL rendering to save GPU and battery
-                            splineApp.current.stop();
-                        }
-                    } catch (e) {
-                        // Silently fallback if methods don't exist in this version
-                    }
-                }
-            },
-            { rootMargin: "200px" } // Trigger slightly before it enters viewport
-        );
-
-        observer.observe(containerRef.current);
-        return () => observer.disconnect();
-    }, [showStatic]);
+        setIsVisible(active);
+        const app = splineApp.current;
+        if (!app) return;
+        try {
+            if (active) app.play();
+            else app.stop();
+        } catch {
+            // older runtimes without play/stop
+        }
+    }, [active, isSceneLoaded]);
 
     // Fallback timer just in case onLoad fails
     useEffect(() => {

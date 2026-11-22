@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 import { useTranslations } from 'next-intl';
 import { useTheme } from 'next-themes';
 import { galleryPhotos } from '@/data/gallery';
+import { useShouldAnimate } from '@/hooks/useShouldAnimate';
 
 /* ──────────────────────────────────────────────────────
    Helper to map Categories/Tags to Icons
@@ -170,16 +171,20 @@ function StatsVisual({ categoryStats }: { categoryStats: { name: string, count: 
   const days = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
   const [activeIdx, setActiveIdx] = useState(0);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+  // The bars animate their height (layout work every frame): only while the chart is on screen
+  const chartRef = useRef<HTMLDivElement>(null);
+  const chartActive = useShouldAnimate(chartRef);
 
   useEffect(() => {
+    if (!chartActive) return;
     const interval = setInterval(() => {
       setActiveIdx((prev) => (prev === 0 ? 1 : 0));
     }, 3000);
     return () => clearInterval(interval);
-  }, []);
+  }, [chartActive]);
 
   return (
-    <div className="w-full h-full flex flex-col gap-3.5 justify-between p-2">
+    <div ref={chartRef} className="w-full h-full flex flex-col gap-3.5 justify-between p-2">
       <div className="flex gap-4 pt-[0.625rem] pr-[0.625rem] pb-0.5 pl-0.5">
         {[
           { label: "Total Articles", value: "10+", trend: "+2" },
@@ -269,9 +274,9 @@ function StatsVisual({ categoryStats }: { categoryStats: { name: string, count: 
             <motion.div
               className="absolute bottom-0 left-0 right-0 bg-primary border-t border-x border-primary/80 shadow-[inset_0_0.5px_0_0_rgba(255,255,255,0.6),inset_0_8px_12px_0_rgba(255,255,255,0.03),inset_0.5px_0_0_0_rgba(255,255,255,0.2),inset_0_2px_6px_0_rgba(255,255,255,0.3),inset_0_-0.5px_0_0_rgba(0,0,0,0.2),inset_-0.5px_0_0_0_rgba(0,0,0,0.1),inset_0_-2px_6px_0_rgba(0,0,0,0.1),0_1px_2px_0_rgba(0,0,0,0.08),0_2px_4px_0_rgba(0,0,0,0.06),0_4px_6px_0_rgba(0,0,0,0.04),inset_0_-4px_8px_0_rgba(0,0,0,0.05)] rounded-t-[10px]"
               initial={{ height: "0%" }}
-              animate={{
+              animate={chartActive ? {
                 height: [`${h}%`, `${Math.min(95, h + 15)}%`, `${Math.max(10, h - 20)}%`, `${Math.min(90, h + 8)}%`, `${h}%`],
-              }}
+              } : { height: `${h}%` }}
               transition={{ repeat: Infinity, duration: 3 + (i % 3) * 0.8, ease: "easeInOut", delay: i * 0.1 }}
             />
           </div>

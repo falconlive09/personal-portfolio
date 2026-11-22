@@ -2,6 +2,8 @@
 
 import { motion, MotionValue, useScroll, useTransform, useSpring } from "framer-motion";
 import { useRef, useState, useEffect } from "react";
+import { useIsMobile } from "@/hooks/useIsMobile";
+import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import Image from "next/image";
@@ -64,13 +66,18 @@ function ScrambleButton({ href }: { href: string }) {
 type ColumnProps = {
   images: string[];
   y: MotionValue<number>;
+  /** Phones & tablets: no scroll parallax, and no permanent GPU layer per column */
+  still?: boolean;
 };
 
-const Column = ({ images, y }: ColumnProps) => {
+const Column = ({ images, y, still = false }: ColumnProps) => {
   return (
     <motion.div
-      className="relative -top-[45%] flex h-full w-1/3 min-w-[250px] flex-col gap-4 md:gap-6 first:top-[-45%] [&:nth-child(2)]:top-[-95%] [&:nth-child(3)]:top-[-65%] will-change-transform"
-      style={{ y, translateZ: 0 }}
+      className={cn(
+        "relative -top-[45%] flex h-full w-1/3 min-w-[250px] flex-col gap-4 md:gap-6 first:top-[-45%] [&:nth-child(2)]:top-[-95%] [&:nth-child(3)]:top-[-65%]",
+        !still && "will-change-transform"
+      )}
+      style={still ? undefined : { y, translateZ: 0 }}
     >
       {images.map((src, i) => (
         <div key={i} className="relative w-full overflow-hidden rounded-none bg-zinc-100 dark:bg-zinc-900 ring-1 ring-black/5 dark:ring-white/10" style={{ paddingTop: '75%' }}>
@@ -109,6 +116,7 @@ export function CertificateShowcase() {
   const y = useTransform(smoothProgress, [0, 1], [0, height * 1.2]);
   const y2 = useTransform(smoothProgress, [0, 1], [0, height * 2.0]);
   const y3 = useTransform(smoothProgress, [0, 1], [0, height * 0.8]);
+  const compact = useIsMobile(1024);
 
   useEffect(() => {
     const resize = () => {
@@ -161,9 +169,9 @@ export function CertificateShowcase() {
           className="relative box-border flex h-[100vh] md:h-[130vh] gap-4 md:gap-6 overflow-hidden rounded-none"
         >
           {/* Fill each column with more images so they don't run out during the scroll */}
-          <Column images={column(0)} y={y} />
-          <Column images={column(1)} y={y2} />
-          <Column images={column(2)} y={y3} />
+          <Column images={column(0)} y={y} still={compact} />
+          <Column images={column(1)} y={y2} still={compact} />
+          <Column images={column(2)} y={y3} still={compact} />
         </div>
       </div>
       

@@ -312,6 +312,9 @@ class ImageTrailVariant3 {
   private lastMousePos: { x: number; y: number };
   private cacheMousePos: { x: number; y: number };
   private isDestroyed = false;
+  // The render loop only runs while the pointer is moving (and until the eased position catches up),
+  // instead of every frame forever after the first mouse move.
+  private running = false;
   private handlePointerMove: (ev: MouseEvent | TouchEvent) => void;
 
   constructor(container: HTMLDivElement) {
@@ -331,6 +334,7 @@ class ImageTrailVariant3 {
     this.handlePointerMove = (ev: MouseEvent | TouchEvent) => {
       const rect = container.getBoundingClientRect();
       this.mousePos = getLocalPointerPos(ev, rect);
+      this.kick();
     };
     window.addEventListener('mousemove', this.handlePointerMove);
     window.addEventListener('touchmove', this.handlePointerMove);
@@ -339,12 +343,18 @@ class ImageTrailVariant3 {
       const rect = container.getBoundingClientRect();
       this.mousePos = getLocalPointerPos(ev, rect);
       this.cacheMousePos = { ...this.mousePos };
-      requestAnimationFrame(() => this.render());
+      this.kick();
       window.removeEventListener('mousemove', initRender as EventListener);
       window.removeEventListener('touchmove', initRender as EventListener);
     };
     window.addEventListener('mousemove', initRender as EventListener);
     window.addEventListener('touchmove', initRender as EventListener);
+  }
+
+  private kick() {
+    if (this.running || this.isDestroyed) return;
+    this.running = true;
+    requestAnimationFrame(() => this.render());
   }
 
   public destroy() {
@@ -355,6 +365,10 @@ class ImageTrailVariant3 {
 
   private render() {
     if (this.isDestroyed) return;
+    // Reset the stacking counter first: with no idle frames running, this is where it now happens
+    if (this.isIdle && this.zIndexVal !== 1) {
+      this.zIndexVal = 1;
+    }
     const distance = getMouseDistance(this.mousePos, this.lastMousePos);
     this.cacheMousePos.x = lerp(this.cacheMousePos.x, this.mousePos.x, 0.1);
     this.cacheMousePos.y = lerp(this.cacheMousePos.y, this.mousePos.y, 0.1);
@@ -363,8 +377,10 @@ class ImageTrailVariant3 {
       this.showNextImage();
       this.lastMousePos = { ...this.mousePos };
     }
-    if (this.isIdle && this.zIndexVal !== 1) {
-      this.zIndexVal = 1;
+    const settled = Math.abs(this.cacheMousePos.x - this.mousePos.x) < 0.5 && Math.abs(this.cacheMousePos.y - this.mousePos.y) < 0.5;
+    if (settled) {
+      this.running = false;
+      return;
     }
     requestAnimationFrame(() => this.render());
   }

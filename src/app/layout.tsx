@@ -92,6 +92,7 @@ import { ThemeAwareClickSpark } from '@/components/ui/ThemeAwareClickSpark';
 import { ConditionalNavigation } from '@/components/layout/ConditionalNavigation';
 import { ArcPreloaderWrapper } from '@/components/layout/ArcPreloaderWrapper';
 import { ChatBot } from '@/components/layout/ChatBot';
+import { OffscreenAnimationPauser } from '@/components/layout/OffscreenAnimationPauser';
 
 export default async function RootLayout({
     children,
@@ -114,6 +115,7 @@ export default async function RootLayout({
                                     </ConditionalNavigation>
                                 </ArcPreloaderWrapper>
                                 <ChatBot headless />
+                                <OffscreenAnimationPauser />
                             </ThemeAwareClickSpark>
                         </SmoothScrollProvider>
                     </I18nProvider>

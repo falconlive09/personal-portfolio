@@ -14,6 +14,10 @@ type SpotlightProps = {
     xOffset?: number;
 };
 
+// Each sliding beam box clips its content (overflow-hidden) and reaches `xOffset` past the screen edge on
+// the side it slides away from, so the clip edge never shows. Unclipped, the rotated 1380px gradients made
+// each animated layer ~5x the screen width, which iOS keeps fully in memory: enough to crash Safari on
+// 4 GB iPhones. The inner div keeps the original w-screen/h-screen frame, so the beams sit where they did.
 export const Spotlight = ({
     gradientFirst = "radial-gradient(68.54% 68.72% at 55.02% 31.46%, hsla(210, 100%, 85%, .08) 0, hsla(210, 100%, 55%, .02) 50%, hsla(210, 100%, 45%, 0) 80%)",
     gradientSecond = "radial-gradient(50% 50% at 50% 50%, hsla(210, 100%, 85%, .06) 0, hsla(210, 100%, 55%, .02) 80%, transparent 100%)",
@@ -48,8 +52,10 @@ export const Spotlight = ({
                     repeatType: "reverse",
                     ease: "easeInOut",
                 }}
-                className="absolute top-0 left-0 w-screen h-screen z-40 pointer-events-none"
+                className="absolute top-0 bottom-0 left-0 z-40 pointer-events-none overflow-hidden"
+                style={{ left: -xOffset, width: `calc(100vw + ${xOffset}px)` }}
             >
+                <div className="absolute top-0 w-screen h-screen" style={{ left: xOffset }}>
                 <div
                     style={{
                         transform: `translateY(${translateY}px) rotate(-45deg)`,
@@ -79,6 +85,7 @@ export const Spotlight = ({
                     }}
                     className={`absolute top-0 left-0 origin-top-left`}
                 />
+                </div>
             </motion.div>
 
             <motion.div
@@ -91,8 +98,10 @@ export const Spotlight = ({
                     repeatType: "reverse",
                     ease: "easeInOut",
                 }}
-                className="absolute top-0 right-0 w-screen h-screen z-40 pointer-events-none"
+                className="absolute top-0 bottom-0 right-0 z-40 pointer-events-none overflow-hidden"
+                style={{ right: -xOffset, width: `calc(100vw + ${xOffset}px)` }}
             >
+                <div className="absolute top-0 w-screen h-screen" style={{ right: xOffset }}>
                 <div
                     style={{
                         transform: `translateY(${translateY}px) rotate(45deg)`,
@@ -122,6 +131,7 @@ export const Spotlight = ({
                     }}
                     className={`absolute top-0 right-0 origin-top-right`}
                 />
+                </div>
             </motion.div>
         </motion.div>
     );

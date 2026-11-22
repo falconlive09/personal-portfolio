@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef } from "react";
-import { motion, useTransform, useSpring, easeOut, easeInOut, circOut, useMotionValueEvent } from "framer-motion";
+import { motion, useTransform, useSpring, easeOut, easeInOut, circOut, useMotionValueEvent, useInView } from "framer-motion";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
@@ -35,8 +35,9 @@ const BlurInUpText = ({ text, animate }: { text: string; animate: boolean }) => 
                                     transition: { type: "spring", bounce: 0, duration: 0.5 } 
                                 }
                             }}
+                            // No will-change here: it kept every letter as its own GPU layer (~300 on the
+                            // home page) long after the reveal finished. Framer promotes them while animating.
                             className="inline-block"
-                            style={{ willChange: "filter, opacity, transform" }}
                         >
                             {char}
                         </motion.span>
@@ -51,12 +52,21 @@ const BlurInUpText = ({ text, animate }: { text: string; animate: boolean }) => 
 interface IdentitySequenceProps {
     scrollYProgress: any; // Parent scroll progress [0, 1]
     isVisible: boolean;
+    /**
+     * Phones & tablets: no pinned scroll story. The card sits in normal flow in its final state
+     * (marquee, portrait, text, tech stack one after another) and reveals play when scrolled into view.
+     */
+    compact?: boolean;
 }
 
-export const IdentitySequence = ({ scrollYProgress, isVisible }: IdentitySequenceProps) => {
+export const IdentitySequence = ({ scrollYProgress, isVisible, compact = false }: IdentitySequenceProps) => {
     const t = useTranslations("about");
     const [isHovered, setIsHovered] = React.useState(false);
     const [isTextAnimated, setIsTextAnimated] = React.useState(false);
+    // Compact mode: the narrative text animates in when it reaches the screen instead of at a scroll point
+    const textRef = React.useRef<HTMLDivElement>(null);
+    const textInView = useInView(textRef, { once: true, margin: "0px 0px -15% 0px" });
+    const textAnimated = compact ? textInView : isTextAnimated;
 
     // Map the parent's scroll progress (0.4 to 0.85) to local progress (0 to 1).
     // This leaves 0.85 to 1.0 (approx 90vh) as a "pause" where the user can just read the Tech Stack before it scrolls away.
@@ -120,9 +130,11 @@ export const IdentitySequence = ({ scrollYProgress, isVisible }: IdentitySequenc
     ];
 
     return (
-        <div className="relative w-screen h-full flex flex-col items-center justify-center overflow-hidden bg-background dark:bg-black">
+        <div className={compact
+            ? "relative w-full flex flex-col items-center overflow-hidden bg-background dark:bg-black"
+            : "relative w-screen h-full flex flex-col items-center justify-center overflow-hidden bg-background dark:bg-black"}>
             {/* Phase 0: The Lead-in UI (Visible before card scales) */}
-            <motion.div
+            {!compact && (<motion.div
                 style={{ opacity: phase0Opacity }}
                 className="absolute inset-0 z-0 flex flex-col items-center justify-center pointer-events-none -translate-y-12"
             >
@@ -172,27 +184,29 @@ export const IdentitySequence = ({ scrollYProgress, isVisible }: IdentitySequenc
                         {t("leadIn.shortStory")}
                     </div>
                 </div>
-            </motion.div>
+            </motion.div>)}
 
             {/* The Main Card Container */}
             <motion.div
-                style={{
+                style={compact ? undefined : {
                     scale: cardScale,
                     y: cardY,
                     borderRadius: cardBorderRadius,
                     backgroundColor: cardBgValue,
                     willChange: "transform, background-color",
                 }}
-                className="relative w-full h-full flex flex-col overflow-hidden origin-bottom z-10"
+                className={compact
+                    ? "relative w-full flex flex-col overflow-hidden z-10 bg-white dark:bg-black"
+                    : "relative w-full h-full flex flex-col overflow-hidden origin-bottom z-10"}
             >
                 {/* Unified Scrolling Content Wrapper */}
                 <motion.div
-                    style={{ y: contentY }}
+                    style={compact ? undefined : { y: contentY }}
                     className="relative w-full flex flex-col items-center"
                 >
                     {/* Phase 1: Marquee Header (Top of the long card) */}
-                    <div className="w-full h-screen flex items-center justify-center flex-shrink-0">
-                        <motion.div style={{ opacity: cardContentOpacity }} className="w-full">
+                    <div className={cn("w-full flex items-center justify-center flex-shrink-0", compact ? "py-16" : "h-screen")}>
+                        <motion.div style={compact ? undefined : { opacity: cardContentOpacity }} className="w-full">
                             <InfiniteMarquee
                                 items={marqueeItems}
                                 speed={18}
@@ -203,7 +217,7 @@ export const IdentitySequence = ({ scrollYProgress, isVisible }: IdentitySequenc
                     </div>
 
                     {/* Phase 2: The Large Portrait (The "Explore" area) */}
-                    <div className="relative w-full h-[100vh] flex flex-col items-center flex-shrink-0 px-4 md:px-10 lg:px-20">
+                    <div className={cn("relative w-full flex flex-col items-center flex-shrink-0 px-4 md:px-10 lg:px-20", compact ? "h-[85svh] max-lg:landscape:h-[100svh]" : "h-[100vh]")}>
                         {/* Sizing wrapper - not clipped */}
                         <div
                             onMouseEnter={() => setIsHovered(true)}
@@ -213,9 +227,13 @@ export const IdentitySequence = ({ scrollYProgress, isVisible }: IdentitySequenc
                             {/* Image area - THIS is what clips. Vault frame is OUTSIDE this. */}
                             <div className="absolute inset-0 overflow-hidden">
                                 <motion.div
-                                    style={{
+                                    style={compact ? undefined : {
                                         scale: photoScale,
                                     }}
+                                    // Compact: the zoom-out plays once when the portrait scrolls into view
+                                    initial={compact ? { scale: 1.15 } : undefined}
+                                    whileInView={compact ? { scale: 1 } : undefined}
+                                    viewport={{ once: true, amount: 0.3 }}
                                     animate={{
                                         filter: isHovered ? "grayscale(0%) contrast(1)" : "grayscale(100%) contrast(1.1)",
                                     }}
@@ -227,7 +245,7 @@ export const IdentitySequence = ({ scrollYProgress, isVisible }: IdentitySequenc
                                         <div className="absolute w-[calc(100%+100px)] h-[130vh] -top-[15vh] -left-[50px]">
                                             <motion.div 
                                                 className="relative h-full w-full" 
-                                                style={{ y: imageParallaxY }}
+                                                style={compact ? undefined : { y: imageParallaxY }}
                                             >
                                                 <Image
                                                     src={portfolioData.personal.avatarWide ?? portfolioData.personal.avatar}
@@ -246,19 +264,20 @@ export const IdentitySequence = ({ scrollYProgress, isVisible }: IdentitySequenc
                             {/* Vault frame - OUTSIDE overflow-hidden, extends 1px beyond clip edge to cover it */}
                             <div className="absolute inset-0 pointer-events-none z-20">
                                 {/* Top bar: -top-px + h-[52px] covers the clip edge by 1px */}
-                                <motion.div style={{ backgroundColor: cardBgValue }} className="absolute -top-px left-0 w-full h-[52px]" />
-                                <motion.div style={{ background: vaultGradientDown }} className="absolute top-[50px] left-0 w-full h-32" />
+                                <motion.div style={compact ? undefined : { backgroundColor: cardBgValue }} className={cn("absolute -top-px left-0 w-full h-[52px]", compact && "bg-white dark:bg-black")} />
+                                <motion.div style={compact ? undefined : { background: vaultGradientDown }} className={cn("absolute top-[50px] left-0 w-full h-32", compact && "bg-gradient-to-b from-white to-white/0 dark:from-black dark:to-black/0")} />
                                 
                                 {/* Bottom bar: -bottom-px + h-[52px] covers the clip edge by 1px */}
-                                <motion.div style={{ backgroundColor: cardBgValue }} className="absolute -bottom-px left-0 w-full h-[52px]" />
-                                <motion.div style={{ background: vaultGradientUp }} className="absolute bottom-[50px] left-0 w-full h-32" />
+                                <motion.div style={compact ? undefined : { backgroundColor: cardBgValue }} className={cn("absolute -bottom-px left-0 w-full h-[52px]", compact && "bg-white dark:bg-black")} />
+                                <motion.div style={compact ? undefined : { background: vaultGradientUp }} className={cn("absolute bottom-[50px] left-0 w-full h-32", compact && "bg-gradient-to-t from-white to-white/0 dark:from-black dark:to-black/0")} />
                             </div>
                         </div>
                     </div>
 
                     {/* Phase 3: Final Layout Text */}
                     <motion.div
-                        style={{ opacity: textOpacity }}
+                        ref={textRef}
+                        style={compact ? undefined : { opacity: textOpacity }}
                         className="w-full max-w-[1700px] mx-auto px-8 md:px-16 lg:px-24 pt-24 pb-8 md:pt-32 md:pb-12 flex-shrink-0"
                     >
                         <div className="grid grid-cols-1 md:grid-cols-12 gap-12 md:gap-16 items-start">
@@ -275,7 +294,7 @@ export const IdentitySequence = ({ scrollYProgress, isVisible }: IdentitySequenc
                                 <p className="text-[13px] md:text-[15px] text-zinc-500 dark:text-zinc-400 leading-relaxed font-normal">
                                     <BlurInUpText 
                                         text={`${t("profile.narrative")} ${t("profile.narrative2")}`} 
-                                        animate={isTextAnimated} 
+                                        animate={textAnimated} 
                                     />
                                 </p>
                             </div>
@@ -284,7 +303,7 @@ export const IdentitySequence = ({ scrollYProgress, isVisible }: IdentitySequenc
 
                     {/* Phase 4: Tech Stack & Tools Scrollers */}
                     <motion.div
-                        style={{ opacity: textOpacity }}
+                        style={compact ? undefined : { opacity: textOpacity }}
                         className="w-full max-w-[1700px] mx-auto py-20 flex flex-col gap-8 flex-shrink-0"
                     >
                         <div className="px-8 md:px-16 lg:px-24 mb-6">

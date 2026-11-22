@@ -18,6 +18,7 @@ import * as THREE from 'three';
 import { useTheme } from 'next-themes';
 
 import { usePerformance } from '@/hooks/usePerformance';
+import { useShouldAnimate } from '@/hooks/useShouldAnimate';
 import { portfolioData } from '@/data/portfolio';
 import { WebGLErrorBoundary } from '@/components/ui/WebGLErrorBoundary';
 
@@ -53,6 +54,7 @@ export function Lanyard({
     // Touches that don't start on the card still scroll the page normally.
     const draggingRef = useRef(false);
     const wrapRef = useRef<HTMLDivElement>(null);
+    const active = useShouldAnimate(wrapRef);
     useEffect(() => {
         const el = wrapRef.current;
         if (!el) return;
@@ -121,6 +123,8 @@ export function Lanyard({
         <div ref={wrapRef} className="relative z-0 w-full h-full flex justify-center items-center transform scale-100 origin-center">
             <WebGLErrorBoundary>
 <Canvas
+                // Stop rendering and physics while the card is off-screen or the tab is hidden
+                frameloop={active ? 'always' : 'never'}
                 camera={{ position, fov }}
                 // Phones have 3x screens; rendering at 1.5x made the card text and photo look soft
                 dpr={[1, isMobile ? 2.5 : 2]}
@@ -129,7 +133,7 @@ export function Lanyard({
             >
                 <ambientLight intensity={Math.PI} />
                 <Suspense fallback={null}>
-                    <Physics gravity={gravity} timeStep={isMobile ? 1 / 30 : 1 / 60}>
+                    <Physics gravity={gravity} timeStep={isMobile ? 1 / 30 : 1 / 60} paused={!active}>
                         <Band isMobile={isMobile} isDark={isDark} draggingRef={draggingRef} />
                     </Physics>
                 </Suspense>

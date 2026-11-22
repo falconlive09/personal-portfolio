@@ -60,12 +60,17 @@ export function InfiniteImageField({
   const mouseRef = useRef({ x: 0.5, y: 0.5 });
   const isInsideRef = useRef(false);
   const rafRef = useRef<number>(0);
+  // The loop stops once the field is at rest (cursor outside, velocity ~0, images loaded) and is
+  // restarted by hover, mouse movement, resize or an image finishing loading.
+  const runningRef = useRef(false);
+  const kickRef = useRef<() => void>(() => {});
 
   // Pre-load images
   useEffect(() => {
     const imgs = images.map((src) => {
       const img = new Image();
       img.crossOrigin = "anonymous";
+      img.onload = () => kickRef.current();
       img.src = src;
       return img;
     });
@@ -152,6 +157,15 @@ export function InfiniteImageField({
       }
     }
 
+    const allLoaded = imgs.every((img) => img.complete && img.naturalWidth > 0);
+    const atRest =
+      !isInsideRef.current &&
+      Math.abs(velRef.current.x) < 0.01 &&
+      Math.abs(velRef.current.y) < 0.01;
+    if (atRest && allLoaded) {
+      runningRef.current = false;
+      return;
+    }
     rafRef.current = requestAnimationFrame(draw);
   }, [imageWidth, imageHeight, gap, maxSpeed, smoothing, borderRadius]);
 
@@ -159,12 +173,20 @@ export function InfiniteImageField({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    const kick = () => {
+      if (runningRef.current) return;
+      runningRef.current = true;
+      rafRef.current = requestAnimationFrame(draw);
+    };
+    kickRef.current = kick;
+
     const resize = () => {
       const dpr = window.devicePixelRatio || 1;
       const rect = canvas.getBoundingClientRect();
       dimsRef.current = { w: rect.width, h: rect.height };
       canvas.width = rect.width * dpr;
       canvas.height = rect.height * dpr;
+      kick(); // resizing clears the canvas, so draw again
     };
 
     resize();
@@ -178,10 +200,12 @@ export function InfiniteImageField({
         x: (e.clientX - rect.left) / rect.width,
         y: (e.clientY - rect.top) / rect.height,
       };
+      kick();
     };
 
     const onEnter = () => {
       isInsideRef.current = true;
+      kick();
     };
     const onLeave = () => {
       isInsideRef.current = false;
@@ -191,10 +215,12 @@ export function InfiniteImageField({
     canvas.addEventListener("mouseenter", onEnter);
     canvas.addEventListener("mouseleave", onLeave);
 
-    rafRef.current = requestAnimationFrame(draw);
+    kick();
 
     return () => {
       cancelAnimationFrame(rafRef.current);
+      runningRef.current = false;
+      kickRef.current = () => {};
       ro.disconnect();
       canvas.removeEventListener("mousemove", onMove);
       canvas.removeEventListener("mouseenter", onEnter);

@@ -3,6 +3,7 @@
 import { cn } from '@/lib/utils';
 import { useScroll, useSpring, useTransform, useMotionValue, useVelocity, useAnimationFrame, motion } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
+import { useShouldAnimate } from '@/hooks/useShouldAnimate';
 
 // Local wrap utility
 const wrap = (min: number, max: number, v: number) => {
@@ -53,8 +54,12 @@ export function InfiniteRibbon({
 
     // Refs not needed with new moveBy logic
 
+    // Skip the per-frame work while the ribbon is off-screen or the tab is hidden
+    const wrapRef = useRef<HTMLDivElement>(null);
+    const active = useShouldAnimate(wrapRef);
+
     useAnimationFrame((t, delta) => {
-        if (isMobile) return;
+        if (isMobile || !active) return;
 
         let moveBy = baseVelocity * (delta / 1000);
         if (reverse) moveBy = -moveBy;
@@ -65,6 +70,7 @@ export function InfiniteRibbon({
 
     return (
         <div
+            ref={wrapRef}
             className={cn("absolute left-1/2 top-1/2 opacity-90 w-[200vw] py-3 overflow-hidden whitespace-nowrap z-10", background, className)}
             style={{
                 transform: `translate(-50%, -50%) rotate(${rotation}deg)`,

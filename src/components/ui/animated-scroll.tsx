@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { HoverScrambleText } from '@/components/ui/hover-scramble-text';
 import { ChevronDown } from 'lucide-react';
 import Loader from './Loader';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 const pages = [
     {
@@ -86,6 +87,32 @@ export default function ScrollAdventure() {
     const enterOpacity = useTransform(enterProgress, [0, 1], [0, 1]);
     const enterBorderRadius = useTransform(enterProgress, [0, 1], ["40px", "0px"]);
 
+    // Phones & tablets: no 800vh pinned slideshow. Each page is its own full-screen block in normal
+    // scroll (same cards), fading up once as it arrives.
+    const compact = useIsMobile(1024);
+    if (compact) {
+        return (
+            <div ref={containerRef} className="relative w-full">
+                {pages.map((page, i) => (
+                    <motion.div
+                        key={i}
+                        initial={{ opacity: 0, y: 40 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true, amount: 0.25 }}
+                        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+                        className="relative h-[100svh] w-full overflow-hidden bg-background dark:bg-black"
+                    >
+                        {'isBridge' in page ? (
+                            <BridgeSlide page={page} isActive scrollProgress={smoothProgress} index={i} compact />
+                        ) : (
+                            <PageSlide page={page} isActive scrollProgress={smoothProgress} index={i} compact />
+                        )}
+                    </motion.div>
+                ))}
+            </div>
+        );
+    }
+
     return (
         <div ref={containerRef} className="relative h-[800vh] w-full pointer-events-none">
             <motion.div
@@ -128,7 +155,7 @@ const halfClass = (side: 'left' | 'right', hasVisual: boolean) => cn(
     side === 'left' ? "lg:rounded-l-3xl landscape:rounded-l-3xl" : "lg:rounded-r-3xl landscape:rounded-r-3xl"
 );
 
-function PageSlide({ page, isActive, scrollProgress, index }: { page: any, isActive: boolean, scrollProgress: any, index: number }) {
+function PageSlide({ page, isActive, scrollProgress, index, compact = false }: { page: any, isActive: boolean, scrollProgress: any, index: number, compact?: boolean }) {
     const leftHasVisual = !!page.leftBgImage || !!page.leftComponent;
     const rightHasVisual = !!page.rightBgImage || !!page.rightComponent;
 
@@ -170,13 +197,13 @@ function PageSlide({ page, isActive, scrollProgress, index }: { page: any, isAct
     );
 
     return (
-        <motion.div style={{ zIndex }} className="absolute inset-0 flex items-center justify-center pointer-events-none p-4 md:p-8 lg:p-12">
+        <motion.div style={compact ? undefined : { zIndex }} className="absolute inset-0 flex items-center justify-center pointer-events-none p-4 md:p-8 lg:p-12">
             {/* Unified Card Container */}
             <div className="relative w-full h-full max-w-[1600px] flex flex-col lg:flex-row landscape:flex-row pointer-events-auto">
 
                 {/* LEFT HALF OF THE SPLIT CARD */}
                 <motion.div
-                    style={{ y: leftY }}
+                    style={compact ? undefined : { y: leftY }}
                     className={halfClass('left', leftHasVisual)}
                 >
                     <div className="w-full h-full relative overflow-hidden">
@@ -200,7 +227,7 @@ function PageSlide({ page, isActive, scrollProgress, index }: { page: any, isAct
 
                 {/* RIGHT HALF OF THE SPLIT CARD */}
                 <motion.div
-                    style={{ y: rightY }}
+                    style={compact ? undefined : { y: rightY }}
                     className={halfClass('right', rightHasVisual)}
                 >
                     <div className="w-full h-full relative overflow-hidden">
@@ -226,7 +253,7 @@ function PageSlide({ page, isActive, scrollProgress, index }: { page: any, isAct
     );
 }
 
-function BridgeSlide({ page, isActive, scrollProgress, index }: { page: any, isActive: boolean, scrollProgress: any, index: number }) {
+function BridgeSlide({ page, isActive, scrollProgress, index, compact = false }: { page: any, isActive: boolean, scrollProgress: any, index: number, compact?: boolean }) {
     const step = 1 / pages.length;
     const base = index * step;
 
@@ -236,13 +263,13 @@ function BridgeSlide({ page, isActive, scrollProgress, index }: { page: any, isA
 
     return (
         <motion.div
-            style={{ opacity, zIndex: 30 }}
+            style={compact ? { zIndex: 30 } : { opacity, zIndex: 30 }}
             className={cn(
                 "absolute inset-0 bg-background dark:bg-black flex flex-col items-center justify-center p-12 text-center",
                 isActive ? "pointer-events-auto" : "pointer-events-none"
             )}
         >
-            <motion.div style={{ y }} className="space-y-16 max-w-[1200px] w-full px-[5%]">
+            <motion.div style={compact ? undefined : { y }} className="space-y-16 max-lg:space-y-10 max-w-[1200px] w-full px-[5%]">
                 <h2 className="text-4xl md:text-5xl lg:text-7xl font-medium tracking-tight text-foreground dark:text-white leading-[1.1] font-sans">
                     <HoverScrambleText text={"Discover my latest work and creative solutions \nthat bring ideas to life"} />
                 </h2>

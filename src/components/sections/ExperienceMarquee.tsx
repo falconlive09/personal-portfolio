@@ -8,6 +8,7 @@ import {
     useVelocity,
     useAnimationFrame,
 } from "framer-motion";
+import { useShouldAnimate } from '@/hooks/useShouldAnimate';
 import Image from "next/image";
 import { portfolioData } from "@/data/portfolio";
 import { Experience } from "@/types";
@@ -83,9 +84,12 @@ function ParallaxText({ children, baseVelocity = 100, isLowPowerMode = false }: 
     });
 
     const isHovered = useRef(false);
+    // Skip the per-frame work while the marquee is off-screen or the tab is hidden
+    const wrapRef = useRef<HTMLDivElement>(null);
+    const active = useShouldAnimate(wrapRef);
 
     useAnimationFrame((_t, delta) => {
-        if (isHovered.current || isLowPowerMode) return;
+        if (isHovered.current || isLowPowerMode || !active) return;
 
         // Clamp delta to prevent large jumps when returning from background tab
         const clampedDelta = Math.min(delta, 50);
@@ -122,6 +126,7 @@ function ParallaxText({ children, baseVelocity = 100, isLowPowerMode = false }: 
 
     return (
         <div
+            ref={wrapRef}
             className="overflow-hidden whitespace-nowrap w-full py-1"
             onMouseEnter={() => (isHovered.current = true)}
             onMouseLeave={() => (isHovered.current = false)}

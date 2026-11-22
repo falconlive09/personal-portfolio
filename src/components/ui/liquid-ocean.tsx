@@ -7,6 +7,7 @@ import * as THREE from "three";
 import { cn } from "@/lib/utils";
 import { usePerformance } from "@/hooks/usePerformance";
 import { WebGLErrorBoundary } from '@/components/ui/WebGLErrorBoundary';
+import { useShouldAnimate } from '@/hooks/useShouldAnimate';
 
 // Initialize RectAreaLight uniforms
 if (typeof window !== "undefined") {
@@ -264,19 +265,11 @@ export function LiquidOcean({
     isLowPowerMode: propIsLowPowerMode,
     children,
 }: LiquidOceanProps) {
-    const [isVisible, setIsVisible] = React.useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
     const { isLowPowerMode: performanceLowPower } = usePerformance();
     const isLowPowerMode = propIsLowPowerMode ?? performanceLowPower;
-
-    useEffect(() => {
-        const observer = new IntersectionObserver(
-            ([entry]) => setIsVisible(entry.isIntersecting),
-            { threshold: 0 }
-        );
-        if (containerRef.current) observer.observe(containerRef.current);
-        return () => observer.disconnect();
-    }, []);
+    // Render only while on screen and the tab is visible
+    const isVisible = useShouldAnimate(containerRef, '0px', false);
 
     // Mobile Fallback: Lightweight CSS Gradient
     if (isLowPowerMode) {

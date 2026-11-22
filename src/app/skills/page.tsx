@@ -2,6 +2,7 @@
 
 import { useRef, useState, useEffect } from 'react';
 import { motion, useScroll, useTransform, useAnimationFrame, useMotionValue } from 'framer-motion';
+import { useShouldAnimate } from '@/hooks/useShouldAnimate';
 import { useTranslations } from 'next-intl';
 import { portfolioData } from '@/data/portfolio';
 import { SplineScene } from '@/components/ui/SplineScene';
@@ -54,7 +55,7 @@ function TechSchematic() {
     );
 }
 
-function Bubble({ b, mouseX, mouseY }: { b: any, mouseX: any, mouseY: any }) {
+function Bubble({ b, mouseX, mouseY, active }: { b: any, mouseX: any, mouseY: any, active: boolean }) {
     const ref = useRef<HTMLDivElement>(null);
     const [center, setCenter] = useState({ x: 0, y: 0 });
 
@@ -62,14 +63,29 @@ function Bubble({ b, mouseX, mouseY }: { b: any, mouseX: any, mouseY: any }) {
         const updateCenter = () => {
             if (!ref.current) return;
             const rect = ref.current.getBoundingClientRect();
-            setCenter({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
+            // Far off-screen the hover effect can't be seen: skip the re-render. The next scroll event
+            // after the bubble comes back into range updates it again.
+            if (rect.bottom < -300 || rect.top > window.innerHeight + 300) return;
+            const x = rect.left + rect.width / 2;
+            const y = rect.top + rect.height / 2;
+            setCenter((prev) => (prev.x === x && prev.y === y ? prev : { x, y }));
+        };
+        // At most once per frame (scroll events can fire several times per frame)
+        let frame = 0;
+        const onScrollOrResize = () => {
+            if (frame) return;
+            frame = requestAnimationFrame(() => {
+                frame = 0;
+                updateCenter();
+            });
         };
         updateCenter();
-        window.addEventListener('resize', updateCenter);
-        window.addEventListener('scroll', updateCenter);
+        window.addEventListener('resize', onScrollOrResize);
+        window.addEventListener('scroll', onScrollOrResize, { passive: true });
         return () => {
-            window.removeEventListener('resize', updateCenter);
-            window.removeEventListener('scroll', updateCenter);
+            cancelAnimationFrame(frame);
+            window.removeEventListener('resize', onScrollOrResize);
+            window.removeEventListener('scroll', onScrollOrResize);
         };
     }, []);
 
@@ -86,9 +102,8 @@ function Bubble({ b, mouseX, mouseY }: { b: any, mouseX: any, mouseY: any }) {
         <motion.div
             ref={ref}
             initial={{ opacity: 0, scale: 0.8 }}
-            animate={{
-                y: [0, -35, 0],
-            }}
+            // The bobbing loop runs in JS every frame: only while the hero is on screen
+            animate={active ? { y: [0, -35, 0] } : { y: 0 }}
             style={{
                 position: 'absolute',
                 top: b.top,
@@ -134,10 +149,13 @@ function FloatingTechBubbles({ mouseX, mouseY }: { mouseX: any, mouseY: any }) {
         { icon: "rabbitmq", top: "82%", right: "15%", delay: 0.9 },
     ];
 
+    const wrapRef = useRef<HTMLDivElement>(null);
+    const active = useShouldAnimate(wrapRef);
+
     return (
-        <div className="absolute inset-0 z-10 pointer-events-none overflow-hidden">
+        <div ref={wrapRef} className="absolute inset-0 z-10 pointer-events-none overflow-hidden">
             {bubbles.map((b, i) => (
-                <Bubble key={i} b={b} mouseX={mouseX} mouseY={mouseY} />
+                <Bubble key={i} b={b} mouseX={mouseX} mouseY={mouseY} active={active} />
             ))}
         </div>
     );
@@ -172,6 +190,10 @@ export default function SkillsPage() {
     const opacityHero = useTransform(scrollY, [0, 600], [1, 0]);
 
     const yHeroSpline = useTransform(scrollY, [0, 1000], [0, 200]);
+
+    // The heading's sheen loops run in JS: pause them while the heading is off-screen
+    const sheenRef = useRef<HTMLDivElement>(null);
+    const sheenActive = useShouldAnimate(sheenRef);
     const scaleSpline = useTransform(scrollY, [0, 800], [1, 1.05]);
 
     return (
@@ -229,11 +251,14 @@ export default function SkillsPage() {
                                 SKILLS & TOOLS
 
                                 {/* Crystalline Sheen (Subtle) */}
-                                <div className="absolute inset-x-0 inset-y-0 flex justify-center pointer-events-none overflow-hidden">
-                                    {/* Left-ward Sheen */}
+                                <div ref={sheenRef} className="absolute inset-x-0 inset-y-0 flex justify-center pointer-events-none overflow-hidden">
+                                    {/* Left-ward Sheen. Moved with x (a transform) instead of `left`, which forced a
+                                        layout every frame: the sheen is 40% of the heading wide, so 48% of the heading
+                                        (50% → 2%) is 120% of its own width. Same path, no layout work. */}
                                     <motion.div
-                                        animate={{
-                                            left: ["50%", "2%"],
+                                        style={{ left: "50%" }}
+                                        animate={!sheenActive ? { opacity: 0 } : {
+                                            x: ["0%", "-120%"],
                                             opacity: [0, 0.15, 0],
                                             scale: [0.8, 1.1, 0.8]
                                         }}
@@ -247,8 +272,8 @@ export default function SkillsPage() {
                                     />
                                     {/* Right-ward Sheen */}
                                     <motion.div
-                                        animate={{
-                                            left: ["50%", "98%"],
+                                        animate={!sheenActive ? { opacity: 0 } : {
+                                            x: ["-100%", "20%"], // was left 50% → 98% with translateX(-100%)
                                             opacity: [0, 0.15, 0],
                                             scale: [0.8, 1.1, 0.8]
                                         }}
@@ -258,7 +283,7 @@ export default function SkillsPage() {
                                             repeatDelay: 4,
                                             ease: "easeInOut"
                                         }}
-                                        style={{ translateX: "-100%" }}
+                                        style={{ left: "50%" }}
                                         className="absolute top-0 bottom-0 w-[40%] bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.2)_0%,transparent_70%)] blur-md rounded-[100%]"
                                     />
                                 </div>

@@ -162,10 +162,16 @@ const GLSLHills = ({ width = '100vw', height = '100vh', cameraZ = 125, planeSize
     const renderer = new THREE.WebGLRenderer({ canvas: canvasRef.current, antialias: false });
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 10000);
-    const clock = new THREE.Timer();
     const plane = new Plane();
 
-    let animationId: number;
+    // The hills are a still image: time never advances (the old THREE.Timer was never update()d,
+    // so the shader's time stayed 0). Draw once, and again on resize, instead of redrawing the
+    // identical frame 60 times a second.
+    let frameId = 0;
+    const render = () => {
+      cancelAnimationFrame(frameId);
+      frameId = requestAnimationFrame(() => renderer.render(scene, camera));
+    };
 
     const resize = () => {
       const container = containerRef.current;
@@ -180,16 +186,7 @@ const GLSLHills = ({ width = '100vw', height = '100vh', cameraZ = 125, planeSize
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
       renderer.setSize(width, height);
-    };
-
-    const render = () => {
-      plane.render(clock.getDelta());
-      renderer.render(scene, camera);
-    };
-
-    const renderLoop = () => {
       render();
-      animationId = requestAnimationFrame(renderLoop);
     };
 
     const init = () => {
@@ -204,14 +201,13 @@ const GLSLHills = ({ width = '100vw', height = '100vh', cameraZ = 125, planeSize
       scene.add(plane.mesh);
       window.addEventListener('resize', resize);
       resize();
-      renderLoop();
     };
 
     init();
 
     return () => {
       window.removeEventListener('resize', resize);
-      if (animationId) cancelAnimationFrame(animationId);
+      cancelAnimationFrame(frameId);
       plane.mesh.geometry.dispose();
       (plane.mesh.material as THREE.Material).dispose();
       renderer.dispose();

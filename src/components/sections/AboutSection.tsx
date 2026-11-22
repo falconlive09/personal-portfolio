@@ -9,7 +9,6 @@ import { motion, useScroll, useTransform, useSpring, useMotionValueEvent, Animat
 import { useTheme } from "next-themes";
 import ImageTrail from "@/components/ImageTrail";
 import Image from "next/image";
-import InfiniteMenu from "@/components/InfiniteMenu";
 import { portfolioData } from "@/data/portfolio";
 import { galleryPhotos } from "@/data/gallery";
 import { BeamDivider } from "@/components/ui/BeamDivider";
@@ -264,20 +263,21 @@ const TECH_LOGOS = [
 
 // --- Component 2: Core Engineering Panel ---
 // --- Component 1: Core Engineering Panel (Stats) ---
-const CoreEngineeringPanel = ({ scrollYProgress }: { scrollYProgress: any }) => {
+const CoreEngineeringPanel = ({ scrollYProgress, compact = false }: { scrollYProgress: any; compact?: boolean }) => {
     // Panel 1 exits between 0.45 and 0.65
     const opacity = useTransform(scrollYProgress, [0.45, 0.6], [1, 0]);
     const scale = useTransform(scrollYProgress, [0.45, 0.6], [1, 0.9]);
     const blur = useTransform(scrollYProgress, [0.45, 0.6], [0, 10]);
 
     return (
-        <div className="w-screen h-full flex items-center justify-center bg-background transition-colors duration-500 overflow-hidden">
+        <div className={compact
+            ? "w-full min-h-[100svh] flex items-center justify-center bg-background transition-colors duration-500 overflow-hidden"
+            : "w-screen h-full flex items-center justify-center bg-background transition-colors duration-500 overflow-hidden"}>
             <motion.div
-                style={{
+                style={compact ? undefined : {
                     opacity,
                     scale,
                     filter: `blur(${blur}px)`,
-                    willChange: "transform, opacity, filter",
                 }}
                 className="w-full h-full flex items-center justify-center"
             >
@@ -501,6 +501,18 @@ const ScrollHijackSection = () => {
     const exitOpacity = useTransform(exitProgress, [0, 1], [1, 0]); // Changed to 1 to ensure full fade out
     const exitBorderRadius = useTransform(exitProgress, [0, 1], ["0px", "40px"]);
 
+    // Phones & tablets: no pinned 600vh hijack. The two panels follow each other in normal scroll
+    // (the pinned, scroll-driven version kept too much on the GPU and stuttered on 4 GB iPhones).
+    const compact = useIsMobile(1024);
+    if (compact) {
+        return (
+            <div ref={sectionRef} className="relative">
+                <CoreEngineeringPanel scrollYProgress={smoothProgress} compact />
+                <IdentitySequence isVisible scrollYProgress={smoothProgress} compact />
+            </div>
+        );
+    }
+
     return (
         <div ref={sectionRef} className="relative h-[600vh]">
             <div className="sticky top-0 h-screen w-full overflow-hidden z-10">
@@ -556,6 +568,7 @@ export default function AboutSection() {
     const yLeadIn = useTransform(scrollYProgress, [0, 0.12], [0, -80]);
 
     const leadInTriggerRef = useRef(null);
+    const compact = useIsMobile(1024);
 
     return (
         <section
@@ -564,9 +577,9 @@ export default function AboutSection() {
             className="relative bg-background text-foreground dark:bg-black dark:text-white transition-colors duration-500"
         >
             {/* 1. STICKY PLANE - Lead-in */}
-            <div className="sticky top-0 h-screen w-full flex items-center justify-center z-0 overflow-hidden pointer-events-none">
+            <div className="sticky max-lg:relative top-0 h-screen max-lg:h-[100svh] w-full flex items-center justify-center z-0 overflow-hidden pointer-events-none">
                 <motion.div
-                    style={{ scale, opacity, y: yLeadIn }}
+                    style={compact ? undefined : { scale, opacity, y: yLeadIn }}
                     className="relative px-4 md:px-6 w-full max-w-[1700px] mx-auto"
                     ref={leadInTriggerRef}
                 >
@@ -583,7 +596,7 @@ export default function AboutSection() {
                     <ScrollAdventure />
                     <ArgentLoopInfiniteSlider />
                     {/* Seamless solid background section overlapping the slider's dead space */}
-                    <div className="-mt-[50vh] flex flex-col items-center w-full bg-background relative z-20 pt-32 pb-32">
+                    <div className="-mt-[50vh] max-lg:mt-0 flex flex-col items-center w-full bg-background relative z-20 pt-32 max-lg:pt-16 pb-32">
                         <motion.div
                             initial={{ opacity: 0, scale: 0.98, filter: "blur(10px)" }}
                             whileInView={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
