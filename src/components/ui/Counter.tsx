@@ -6,7 +6,8 @@ export function Counter({ value, decimal = 0, duration = 3, delay = 0 }: { value
     const rounded = useTransform(count, (latest) => latest.toFixed(decimal));
     const [displayValue, setDisplayValue] = useState("0");
     const ref = useRef(null);
-    const isInView = useInView(ref, { once: true, margin: "-50px" });
+    // Bottom margin only: "-50px" on all sides could leave numbers near the screen edge never "in view"
+    const isInView = useInView(ref, { once: true, margin: "0px 0px -50px 0px" });
 
     useEffect(() => {
         if (isInView) {

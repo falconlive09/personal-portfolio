@@ -39,11 +39,12 @@ export const metadata: Metadata = {
     keywords: ['Neal Gautam', 'software engineer', 'backend', 'java', 'spring boot', 'microservices', 'kafka', 'distributed systems', 'portfolio'],
     authors: [{ name: 'Neal Gautam' }],
     creator: 'Neal Gautam',
-    metadataBase: new URL('https://your-domain.com'),
+    // Base for every absolute URL in the tags below, incl. the link-preview image (src/app/opengraph-image.jpg).
+    // Must be the real site: WhatsApp & co. fetch the preview image from here. Update if you add a custom domain.
+    metadataBase: new URL('https://nealgautam.vercel.app'),
     openGraph: {
         type: 'website',
         locale: 'en_US',
-        url: 'https://your-domain.com',
         title: 'Neal Gautam | Software Development Engineer',
         description: 'Software Development Engineer building real-time, high-scale backend and distributed systems.',
         siteName: 'Neal Gautam',
@@ -65,16 +66,20 @@ export const metadata: Metadata = {
             'max-snippet': -1,
         },
     },
-    // Tab icon follows the browser's light/dark setting; favicon.ico is the fallback for browsers that ignore `media`
+    // Tab icon follows the browser's light/dark setting (Chrome, Firefox). The 192px icon has no `media`
+    // so browsers that ignore it (Safari) still get a sharp icon. `?v=2` makes browsers that cached the old
+    // template icons fetch these. The iPhone home-screen/tab-overview icon lives at public/apple-touch-icon.png
+    // (plus -precomposed), the paths iOS Safari also requests directly.
     icons: {
         icon: [
-            { url: '/icons/light/favicon-32x32.png', sizes: '32x32', type: 'image/png', media: '(prefers-color-scheme: light)' },
-            { url: '/icons/light/favicon-16x16.png', sizes: '16x16', type: 'image/png', media: '(prefers-color-scheme: light)' },
-            { url: '/icons/dark/favicon-32x32.png', sizes: '32x32', type: 'image/png', media: '(prefers-color-scheme: dark)' },
-            { url: '/icons/dark/favicon-16x16.png', sizes: '16x16', type: 'image/png', media: '(prefers-color-scheme: dark)' },
+            { url: '/icons/dark/android-chrome-192x192.png?v=2', sizes: '192x192', type: 'image/png' },
+            { url: '/icons/light/favicon-32x32.png?v=2', sizes: '32x32', type: 'image/png', media: '(prefers-color-scheme: light)' },
+            { url: '/icons/light/favicon-16x16.png?v=2', sizes: '16x16', type: 'image/png', media: '(prefers-color-scheme: light)' },
+            { url: '/icons/dark/favicon-32x32.png?v=2', sizes: '32x32', type: 'image/png', media: '(prefers-color-scheme: dark)' },
+            { url: '/icons/dark/favicon-16x16.png?v=2', sizes: '16x16', type: 'image/png', media: '(prefers-color-scheme: dark)' },
         ],
-        shortcut: '/favicon.ico',
-        apple: { url: '/icons/dark/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+        shortcut: '/favicon.ico?v=2',
+        apple: { url: '/apple-touch-icon.png?v=2', sizes: '180x180', type: 'image/png' },
     },
 };
 

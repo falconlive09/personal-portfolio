@@ -50,8 +50,12 @@ export function OffscreenAnimationPauser() {
             for (const anim of document.getAnimations()) {
                 const effect = anim.effect as KeyframeEffect | null;
                 if (!effect || effect.getTiming().iterations !== Infinity) continue;
-                const el = effect.target;
-                if (!el || !el.isConnected) continue;
+                const target = effect.target;
+                if (!target || !target.isConnected) continue;
+                // Watch the parent, not the animated element: the animation moves the element itself, and
+                // one that starts off-screen (e.g. a marquee starting at translateX(-100%)) would be paused
+                // before it could ever move into view. The parent stays put.
+                const el = target.parentElement ?? target;
                 let set = tracked.get(el);
                 if (!set) {
                     set = new Set();
